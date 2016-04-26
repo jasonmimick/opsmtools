@@ -85,7 +85,7 @@ required named arguments:
 Credits
 -------
 
-opsmtools was inspired by the excellent [mtools](https://github.com/rueckstiess/mtools) suite.
+opsmtools was inspired by (and borrows heavily from) the excellent [mtools](https://github.com/rueckstiess/mtools) suite.
 Thanks, Thomas!
 
 Disclaimer

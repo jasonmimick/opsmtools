@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(name='opsmtools',
-      version='0.0.1',
+      version='0.0.2',
       description='MongoDB Ops Manager API helper',
       author='Jason Mimick',
       author_email='jason.mimick@mongodb.com',
@@ -19,4 +19,3 @@ setup(name='opsmtools',
       'terminaltables>=2.1.0'
 ]
 )
-
