@@ -1,6 +1,6 @@
 # opsmtools
 
-**opsmtools** exposes the [MongoDB Ops Manager API](https://docs.opsmanager.mongodb.com/current/reference/api/) 
+**opsmtools** exposes the [MongoDB Ops Manager API](https://docs.opsmanager.mongodb.com/current/reference/api/)
 endpoints through a simple command line script with minimal dependencies.
 
 **not** all endpoint are supported yet, please contribute.
@@ -25,7 +25,7 @@ run `python --version` on the command line. Python 3.x is currently not supporte
 
 #### Installation form source
 
-The easiest wat to install opsmtools is with `curl`:
+The easiest way to install opsmtools is with `curl`:
 
     curl -OL https://raw.githubusercontent.com/jasonmimick/opsmtools/master/opsmtools.py
 
@@ -45,6 +45,7 @@ In that case, you need to add `sudo` in front of the command.
 Usage
 ------
 
+```
 usage: opsmtools [-h] --host HOST --group GROUP --username USERNAME --apikey
                  APIKEY [--getAlerts] [--getAlertConfigs]
                  [--deleteAlertConfigs] [--migrateAlertConfigs]
@@ -79,6 +80,7 @@ required named arguments:
   --group GROUP         the OpsMgr group id
   --username USERNAME   OpsMgr user name
   --apikey APIKEY       OpsMgr api key for the user
+```
 
 Credits
 -------
@@ -89,9 +91,8 @@ Thanks, Thomas!
 Disclaimer
 ----------
 
-This software is not supported by [MongoDB, Inc.](http://www.mongodb.com) under any of their commercial support subscriptions or otherwise. 
+This software is not supported by [MongoDB, Inc.](http://www.mongodb.com) under any of their commercial support subscriptions or otherwise.
 Any usage of opsmtools is at your own risk.
 Bug reports, feature requests and questions can be posted in the [Issues](https://github.com/jasonmimick/opsmtools/issues?state=open) section here on github.
 
-Author: jason.mimick@mongodb.com
-
+Author: [jason.mimick@mongodb.com](jason.mimick@mongodb.com)
