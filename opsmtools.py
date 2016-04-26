@@ -12,7 +12,7 @@ import requests
 import json
 import copy
 from requests.auth import HTTPDigestAuth
-from terminaltables import AsciiTable, DoubleTable
+
 
 # verbose print message only if args.verbose=True
 def vprint(message,args):
@@ -20,6 +20,11 @@ def vprint(message,args):
         print message
 
 def get_alerts(args):
+    try:
+        from terminaltables import AsciiTable
+    except ImportError:
+        AsciiTable = False
+        pass
     host = args.host
     group_id = args.group
     user_name = args.username
@@ -44,12 +49,14 @@ def get_alerts(args):
     table_data.append(['','','Number alerts',str(alerts_json['totalCount'])])
 
     host_info = 'Alerts from ' + host
-    table = AsciiTable( table_data, host_info );
 
-    #table = DoubleTable( table_data, host_info );
-    table.inner_footing_row_border = True
-    print table.table
-
+    if AsciiTable:
+        table = AsciiTable( table_data, host_info );
+        table.inner_footing_row_border = True
+        print table.table
+    else:
+        import pprint
+        pprint.pprint(table_data)
 
 def get_alert_configs(args):
     response = requests.get(args.host
@@ -164,4 +171,3 @@ if parsed_args.action is None:
     parser.parse_args(['-h'])
 else:
     parsed_args.action(parsed_args)
-
