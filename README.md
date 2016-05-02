@@ -23,12 +23,14 @@ run `python --version` on the command line. Python 3.x is currently not supporte
 
 ### opsmtools Installation
 
-#### Installation form source
+#### Installation from source
 
 The easiest way to install opsmtools is with `curl`:
 
-    curl -OL https://raw.githubusercontent.com/jasonmimick/opsmtools/master/opsmtools.py
+    $curl -OL https://raw.githubusercontent.com/jasonmimick/opsmtools/master/opsmtools.py
+    $chmod +x opsmtools.py
 
+<!--
 #### Installation with `pip`
 
 To install opsmtools is via `pip`. From the command line, run:
@@ -41,6 +43,7 @@ try `sudo easy_install pip` from the command line first, or follow the instructi
 
 Depending on your user rights, it may complain about not having permissions to install the module.
 In that case, you need to add `sudo` in front of the command.
+-->
 
 Usage
 ------
@@ -81,6 +84,12 @@ required named arguments:
   --username USERNAME   OpsMgr user name
   --apikey APIKEY       OpsMgr api key for the user
 ```
+
+Optional dependencies
+---------------------
+
+Use ```pip``` to install ```terminaltables``` to get nice ascii
+tables when calling ```--getAlerts```
 
 Credits
 -------
