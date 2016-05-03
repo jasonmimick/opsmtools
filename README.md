@@ -8,6 +8,8 @@ endpoints through a simple command line script with minimal dependencies.
 Supported Endpoints
 -------------------
 
++ Getting Hosts
++ COMING SOON: Getting host metrics
 + Getting Alerts
 + Getting Alert Configurations
 + Deleting Alert Configurations
@@ -30,6 +32,8 @@ The easiest way to install opsmtools is with `curl`:
     $curl -OL https://raw.githubusercontent.com/jasonmimick/opsmtools/master/opsmtools.py
     $chmod +x opsmtools.py
 
+Or you can use your favorite method to download the single python file.
+
 <!--
 #### Installation with `pip`
 
@@ -49,20 +53,25 @@ Usage
 ------
 
 ```
-usage: opsmtools [-h] --host HOST --group GROUP --username USERNAME --apikey
-                 APIKEY [--getAlerts] [--getAlertConfigs]
-                 [--deleteAlertConfigs] [--migrateAlertConfigs]
-                 [--targetHost TARGETHOST] [--targetGroup TARGETGROUP]
-                 [--targetUsername TARGETUSERNAME]
-                 [--targetApikey TARGETAPIKEY] [--continueOnError] [--verbose]
+usage: opsmtools.py [-h] --host HOST --group GROUP --username USERNAME
+                    --apikey APIKEY [--getHosts] [--getAlerts]
+                    [--getAlertConfigs] [--deleteAlertConfigs]
+                    [--postAlertConfigs] [--migrateAlertConfigs]
+                    [--targetHost TARGETHOST] [--targetGroup TARGETGROUP]
+                    [--targetUsername TARGETUSERNAME]
+                    [--targetApikey TARGETAPIKEY]
+                    [--alertConfigsSource ALERTCONFIGSSOURCE]
+                    [--continueOnError] [--verbose]
 
 Get alerts from MongoDB Ops/Cloud Manager
 
 optional arguments:
   -h, --help            show this help message and exit
+  --getHosts            get host information
   --getAlerts           get alerts
   --getAlertConfigs     get alert configurations
   --deleteAlertConfigs  delete ALL alert configs from host
+  --postAlertConfigs    post ALL alert configs to host
   --migrateAlertConfigs
                         migrate ALL alert configs from host to target
   --targetHost TARGETHOST
@@ -73,6 +82,8 @@ optional arguments:
                         target OpsMgr host user name
   --targetApikey TARGETAPIKEY
                         target OpsMgr api key for target user
+  --alertConfigsSource ALERTCONFIGSSOURCE
+                        A file containing JSON alert configs or "-" for STDIN
   --continueOnError     for operations that issue multiple API calls, set this
                         flag to fail to report errors but keep going
   --verbose             enable versbose output for troubleshooting
@@ -89,7 +100,7 @@ Optional dependencies
 ---------------------
 
 Use ```pip``` to install ```terminaltables``` to get nice ascii
-tables when calling ```--getAlerts```
+tables when calling ```--getAlerts```.
 
 Credits
 -------
