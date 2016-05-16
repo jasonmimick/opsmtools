@@ -14,6 +14,9 @@ Supported Endpoints
 + Getting Alert Configurations
 + Deleting Alert Configurations
 + Migrating Alert Configuration from one Ops Mgr to another Ops Mgr instance
++ Getting clusters
++ Listing snapshots from a clusters backups
++ Downloading a particular snapshot or just the 'latest'
 
 Installation
 ------------
