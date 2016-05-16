@@ -454,7 +454,7 @@ parser.add_argument("--getSnapshots",dest='action', action='store_const'
         ,help='get list of snapshots for a given --clusterId')
 parser.add_argument("--createRestore",dest='action', action='store_const'
         ,const=create_restore
-        ,help='create a restore job for a given --snapshotId')
+        ,help='create a restore job from a given --clusterId for a given --snapshotId')
 parser.add_argument("--createRestoreLatest",dest='action', action='store_const'
         ,const=create_latest_restore
         ,help='create a restore job for the lastest snapshotId')

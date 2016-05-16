@@ -54,19 +54,22 @@ Usage
 
 ```
 usage: opsmtools.py [-h] --host HOST --group GROUP --username USERNAME
-                    --apikey APIKEY [--getHosts] [--getAlerts]
+                    --apikey APIKEY [--getClusters] [--getHosts] [--getAlerts]
                     [--getAlertConfigs] [--deleteAlertConfigs]
                     [--postAlertConfigs] [--migrateAlertConfigs]
+                    [--getSnapshots] [--createRestore] [--createRestoreLatest]
                     [--targetHost TARGETHOST] [--targetGroup TARGETGROUP]
                     [--targetUsername TARGETUSERNAME]
                     [--targetApikey TARGETAPIKEY]
                     [--alertConfigsSource ALERTCONFIGSSOURCE]
+                    [--clusterId CLUSTERID] [--snapshotId SNAPSHOTID]
                     [--continueOnError] [--verbose]
 
 Get alerts from MongoDB Ops/Cloud Manager
 
 optional arguments:
   -h, --help            show this help message and exit
+  --getClusters         get cluster information
   --getHosts            get host information
   --getAlerts           get alerts
   --getAlertConfigs     get alert configurations
@@ -74,6 +77,10 @@ optional arguments:
   --postAlertConfigs    post ALL alert configs to host
   --migrateAlertConfigs
                         migrate ALL alert configs from host to target
+  --getSnapshots        get list of snapshots for a given --clusterId
+  --createRestore       create a restore job from a given --clusterId for a given --snapshotId
+  --createRestoreLatest
+                        create a restore job for the lastest snapshotId
   --targetHost TARGETHOST
                         target OpsMgr host with protocol and port
   --targetGroup TARGETGROUP
@@ -84,6 +91,10 @@ optional arguments:
                         target OpsMgr api key for target user
   --alertConfigsSource ALERTCONFIGSSOURCE
                         A file containing JSON alert configs or "-" for STDIN
+  --clusterId CLUSTERID
+                        id of replica set or sharded cluster for snapshots
+  --snapshotId SNAPSHOTID
+                        id of a snapshot to restore
   --continueOnError     for operations that issue multiple API calls, set this
                         flag to fail to report errors but keep going
   --verbose             enable versbose output for troubleshooting
