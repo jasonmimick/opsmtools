@@ -13,12 +13,210 @@ import requests
 import json
 import copy
 from requests.auth import HTTPDigestAuth
+import time
 
 
 # verbose print message only if args.verbose=True
 def vprint(message,args):
     if args.verbose==True:
         print message
+
+# print out list of snapshots for a given cluster/replset id
+def get_snapshots(args):
+    try:
+        from terminaltables import AsciiTable
+    except ImportError:
+        AsciiTable = False
+        pass
+    response= requests.get(args.host+"/api/public/v1.0/groups/"+args.group+"/clusters/"+args.clusterId+"/snapshots"
+             ,auth=HTTPDigestAuth(args.username,args.apikey))
+    response.raise_for_status()
+    vprint("============= response ==============",args)
+    vprint( vars(response),args )
+    vprint("============= end response ==============",args)
+
+    hosts_json = response.json()
+    vprint(hosts_json,args)
+    table_data = [
+        ['created','expires','complete','replicaSetName','id','parts']
+    ]
+    for host in hosts_json['results']:
+        row = []
+        part_data = [
+                [ 'replicaSetName', 'storageSizeBytes', 'mongodbVersion', 'typeName','fileSizeBytes','dataSizeBytes']
+        ]
+        for column in table_data[0]:
+            if column=='parts':
+                parts = []
+                for part in host['parts']:
+                    for pcol in part_data[0]:
+                        parts.append( pcol + ":" + str( part.get(pcol) ) )
+                    parts.append("++++++++++++++")
+                    row.append(str.join("\n",parts))
+            elif column=='created':
+                row.append( str( host.get('created').get('date') ) )
+            else:
+                row.append( str( host.get(column) ) )
+        table_data.append( row )
+
+    table_data.append(['','','Number of snapshots',str(hosts_json['totalCount'])])
+
+    host_info = 'Snapshots from ' + args.host + " for clusterId=" + args.clusterId
+
+    if AsciiTable:
+        table = AsciiTable( table_data, host_info );
+        table.inner_footing_row_border = True
+        print table.table
+    else:
+        import pprint
+        pprint.pprint(table_data)
+
+# create a restore job for a given snapshotId
+def create_restore(args):
+    try:
+        from terminaltables import AsciiTable
+    except ImportError:
+        AsciiTable = False
+        pass
+    headers = { "Content-Type" : "application/json" }
+    snapshotInfo = { "snapshotId" : args.snapshotId }
+    vprint("============= POST data ==============",args)
+    vprint( json.dumps(snapshotInfo),args )
+    vprint("============= end POST data ==============",args)
+    url=args.host+"/api/public/v1.0/groups/"+args.group+"/clusters/"+args.clusterId+"/restoreJobs"
+    vprint(url,args)
+    response = requests.post(url,
+        auth=HTTPDigestAuth(args.username,args.apikey),
+        data=json.dumps(snapshotInfo),
+        headers=headers)
+    response.raise_for_status()
+    vprint("============= response ==============",args)
+    vprint( vars(response),args )
+    vprint("============= end response ==============",args)
+    # poll until restore Job is complete
+    restore_json = response.json();
+    restoreUrl = restore_json.get('results')[0].get('links')[0].get('href')
+    print("Restore job started: " + restoreUrl)
+    restoreStatus = restore_json.get('statusName')
+    while  restoreStatus != "FINISHED":
+        print("Restore of snapshot not complete.")
+        time.sleep(5)
+        response = requests.get(restoreUrl,
+            auth=HTTPDigestAuth(args.username,args.apikey),
+            headers=headers);
+        restore_json = response.json()
+        vprint("======= restore_json =========",args)
+        vprint(restore_json,args)
+        vprint("======= restore_json =========",args)
+        restoreUrl = restore_json.get('links')[0].get('href')
+        restoreStatus = restore_json.get('statusName')
+    print "Restore complete."
+    downloadUrl = restore_json.get('delivery').get("url")
+    filename = downloadUrl.split('/')[-1]
+    print "Downloading from " + downloadUrl + "saving to " + filename
+    response = requests.get(downloadUrl,
+            auth=HTTPDigestAuth(args.username,args.apikey),
+            stream=True)
+    chunk_size = 2048
+    with open(filename, 'wb') as fd:
+        for chunk in response.iter_content(chunk_size):
+            fd.write(chunk)
+    print("Snapshot download complete.")
+
+
+    # download the respore
+
+def create_latest_restore(args):
+    vprint("create_restore_latest",args)
+    response= requests.get(args.host+"/api/public/v1.0/groups/"+args.group+"/clusters/"+args.clusterId+"/snapshots"
+             ,auth=HTTPDigestAuth(args.username,args.apikey))
+    response.raise_for_status()
+    vprint("============= response ==============",args)
+    vprint( vars(response),args )
+    vprint("============= end response ==============",args)
+
+    snaps_json = response.json()
+    vprint(snaps_json,args)
+    snapshotId = snaps_json.get('results')[0].get('id')
+    args.snapshotId = snapshotId
+    create_restore(args)
+
+# print out nice table of hosts & id's
+def get_hosts(args):
+    try:
+        from terminaltables import AsciiTable
+    except ImportError:
+        AsciiTable = False
+        pass
+    response= requests.get(args.host+"/api/public/v1.0/groups/"+args.group+"/hosts/"
+             ,auth=HTTPDigestAuth(args.username,args.apikey))
+    response.raise_for_status()
+    vprint("============= response ==============",args)
+    vprint( vars(response),args )
+    vprint("============= end response ==============",args)
+
+    hosts_json = response.json()
+
+    table_data = [
+        ['hostname','id','clusterId','version','typeName','replicaSetName','replicaStateName','lastPing']
+    ]
+
+    for host in hosts_json['results']:
+        row = []
+        for column in table_data[0]:
+            row.append( str( host.get(column) ) )
+        table_data.append( row );
+
+    table_data.append(['','','Number of hosts',str(hosts_json['totalCount'])])
+
+    host_info = 'Hosts from ' + args.host
+
+    if AsciiTable:
+        table = AsciiTable( table_data, host_info );
+        table.inner_footing_row_border = True
+        print table.table
+    else:
+        import pprint
+        pprint.pprint(table_data)
+
+
+# print out list of clusters.
+def get_clusters(args):
+    try:
+        from terminaltables import AsciiTable
+    except ImportError:
+        AsciiTable = False
+        pass
+    response= requests.get(args.host+"/api/public/v1.0/groups/"+args.group+"/clusters/"
+             ,auth=HTTPDigestAuth(args.username,args.apikey))
+    response.raise_for_status()
+    vprint("============= response ==============",args)
+    vprint( vars(response),args )
+    vprint("============= end response ==============",args)
+
+    hosts_json = response.json()
+    vprint(hosts_json,args)
+    table_data = [
+        ['clusterName','id','typeName','replicaSetName','lastHeartbeat']
+    ]
+
+    for host in hosts_json['results']:
+        row = []
+        for column in table_data[0]:
+            row.append( str( host.get(column) ) )
+        table_data.append( row );
+
+    table_data.append(['','','Number of clusters',str(hosts_json['totalCount'])])
+
+    host_info = 'Clusters from ' + args.host
+
+    if AsciiTable:
+        table = AsciiTable( table_data, host_info );
+        table.inner_footing_row_border = True
+        print table.table
+    else:
+        import pprint
+        pprint.pprint(table_data)
 
 # print out nice table of hosts & id's
 def get_hosts(args):
@@ -230,6 +428,9 @@ requiredNamed.add_argument("--apikey"
         ,help='OpsMgr api key for the user'
         ,required=True)
 
+parser.add_argument("--getClusters",dest='action', action='store_const'
+        ,const=get_clusters
+        ,help='get cluster information')
 parser.add_argument("--getHosts",dest='action', action='store_const'
         ,const=get_hosts
         ,help='get host information')
@@ -248,6 +449,15 @@ parser.add_argument("--postAlertConfigs",dest='action', action='store_const'
 parser.add_argument("--migrateAlertConfigs",dest='action', action='store_const'
         ,const=migrate_alert_configs
         ,help='migrate ALL alert configs from host to target')
+parser.add_argument("--getSnapshots",dest='action', action='store_const'
+        ,const=get_snapshots
+        ,help='get list of snapshots for a given --clusterId')
+parser.add_argument("--createRestore",dest='action', action='store_const'
+        ,const=create_restore
+        ,help='create a restore job for a given --snapshotId')
+parser.add_argument("--createRestoreLatest",dest='action', action='store_const'
+        ,const=create_latest_restore
+        ,help='create a restore job for the lastest snapshotId')
 parser.add_argument("--targetHost"
         ,help='target OpsMgr host with protocol and port')
 parser.add_argument("--targetGroup"
@@ -258,6 +468,10 @@ parser.add_argument("--targetApikey"
         ,help='target OpsMgr api key for target user')
 parser.add_argument("--alertConfigsSource"
         ,help='A file containing JSON alert configs or "-" for STDIN')
+parser.add_argument("--clusterId"
+        ,help='id of replica set or sharded cluster for snapshots')
+parser.add_argument("--snapshotId"
+        ,help='id of a snapshot to restore')
 parser.add_argument("--continueOnError", action='store_true', default=False
         ,help='for operations that issue multiple API calls, set this flag to fail to report errors but keep going')
 parser.add_argument("--verbose", action='store_true', default=False
