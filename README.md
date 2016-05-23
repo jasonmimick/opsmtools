@@ -23,7 +23,7 @@ Installation
 
 
 You need to have a version of Python installed in order to use mtools. Python
-2.6.x and Python 2.7.x are currently supported. To check your Python version,
+2.6.x (you will need to install ``argparse``) and Python 2.7.x are currently supported. To check your Python version,
 run `python --version` on the command line. Python 3.x is currently not supported.
 
 ### opsmtools Installation
