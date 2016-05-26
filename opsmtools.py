@@ -7,7 +7,7 @@
 # Installation:
 # pip install requests,terminaltables
 #
-import sys
+import sys, os
 import argparse
 import requests
 import json
@@ -113,6 +113,10 @@ def create_restore(args):
     print "Restore complete."
     downloadUrl = restore_json.get('delivery').get("url")
     filename = downloadUrl.split('/')[-1]
+    if hasattr(args,'outDirectory'):
+        if not args.outDirectory.endswith(os.sep):
+            args.outDirectory = args.outDirectory + os.sep
+        filename = args.outDirectory + filename
     print "Downloading from " + downloadUrl + "saving to " + filename
     response = requests.get(downloadUrl,
             auth=HTTPDigestAuth(args.username,args.apikey),
@@ -472,6 +476,8 @@ parser.add_argument("--clusterId"
         ,help='id of replica set or sharded cluster for snapshots')
 parser.add_argument("--snapshotId"
         ,help='id of a snapshot to restore')
+parser.add_argument("--outDirectory"
+        ,help='optional directory to save downloaded snapshot')
 parser.add_argument("--continueOnError", action='store_true', default=False
         ,help='for operations that issue multiple API calls, set this flag to fail to report errors but keep going')
 parser.add_argument("--verbose", action='store_true', default=False
