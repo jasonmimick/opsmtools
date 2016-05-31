@@ -14,7 +14,9 @@ import json
 import copy
 from requests.auth import HTTPDigestAuth
 import time
-
+import tarfile
+import subprocess, signal
+import ast
 
 # verbose print message only if args.verbose=True
 def vprint(message,args):
@@ -116,8 +118,9 @@ def create_restore(args):
     if hasattr(args,'outDirectory'):
         if not args.outDirectory.endswith(os.sep):
             args.outDirectory = args.outDirectory + os.sep
+            vars(args)['outDirectory'] = args.outDirectory
         filename = args.outDirectory + filename
-    print "Downloading from " + downloadUrl + "saving to " + filename
+    print "Downloading from " + downloadUrl + " saving to " + filename
     response = requests.get(downloadUrl,
             auth=HTTPDigestAuth(args.username,args.apikey),
             stream=True)
@@ -126,7 +129,7 @@ def create_restore(args):
         for chunk in response.iter_content(chunk_size):
             fd.write(chunk)
     print("Snapshot download complete.")
-
+    vars(args)['create_restore_filename']=filename    #save for possible later processing
 
     # download the respore
 
@@ -144,6 +147,105 @@ def create_latest_restore(args):
     snapshotId = snaps_json.get('results')[0].get('id')
     args.snapshotId = snapshotId
     create_restore(args)
+
+def create_restore_and_deploy(args):
+    vprint("create_restore_and_deploy", args)
+    create_restore(args)
+    vprint("create_restore_and_deploy: args.create_restore_filename=" + args.create_restore_filename, args)
+    total_size_bytes = 0
+    restore_temp_dbpath = "";
+    restore_directory = os.path.dirname(args.create_restore_filename)
+    restore_dir_stats = os.statvfs( restore_directory )
+    restore_dir_free_bytes = restore_dir_stats.f_bavail * restore_dir_stats.f_frsize
+    with tarfile.open(args.create_restore_filename, "r:gz") as tfile:
+        for tinfo in tfile:
+            if total_size_bytes==0:
+                restore_temp_dbpath = tinfo.name.split(os.sep)[0]
+            vprint(tinfo.name + " size: " + str(tinfo.size),args)
+            total_size_bytes += tinfo.size
+        if ( total_size_bytes > restore_dir_free_bytes ):
+            raise Exception('Snapshot requires ' + str(total_size_bytes) + 'bytes of free space. ' +
+            'Only ' + str(restore_dir_free_bytes) + 'bytes available in ' + restore_directory)
+        tfile.extractall(args.outDirectory)
+
+    vprint("total_size_bytes="+str(total_size_bytes),args);
+    vprint("restore_dir_free_bytes=+"+str(restore_dir_free_bytes),args)
+    restore_temp_dbpath = restore_directory + os.sep + restore_temp_dbpath
+    vprint("snapshot extracted to "+restore_temp_dbpath,args)
+    # start temp mongod
+    vprint("args.restoreAndDeployTempPort="+args.restoreAndDeployTempPort,args)
+    mongod_cmd = "mongod --port " + args.restoreAndDeployTempPort
+    mongod_cmd += " --dbpath " + restore_temp_dbpath
+    mongod_cmd += " --logpath " + restore_temp_dbpath + os.sep + 'mongod.log'
+    mongod_cmd += " --fork"
+    if args.restoreAndDeployTempMongodArgs:
+        mongod_cmd += " " + args.restoreAndDeployTempMongodArgs
+    vprint("mongod_cmd="+mongod_cmd,args)
+    # TODO: not sure if I want shell=True???
+    subprocess.check_call(mongod_cmd, shell=True)
+    vprint("temp mongod for restore started", args)
+    with open(restore_temp_dbpath + os.sep + 'mongod.lock', 'r') as pidfile:
+        temp_mongod_pid = pidfile.readline()
+    vprint("temp_mongod_pid=" + temp_mongod_pid,args)
+    #run mongoddump | mongorestore
+    namespaces_to_restore = []
+    if args.restoreNamespace:
+        restoreNSParts = args.restoreNamespace.split('.')
+        if not restoreNSParts[0]=="*":
+            db = restoreNSParts[0]
+            if not restoreNSParts[1]=="*":
+                namespaces_to_restore.append("--db " + db + " --collection " + restoreNSParts[1])
+            else:
+                # need to find all the collections
+                colls_s = subprocess.check_output(["mongo", "--port", args.restoreAndDeployTempPort
+                    , "--eval", "db.getSiblingDB('"+db+"').getCollectionNames()", "--quiet"])
+                colls = ast.literal_eval(colls_s)
+                for coll in colls:
+                        namespaces_to_restore.append(" --db " + db + " --collection " + coll)
+
+        else:
+            #need to find all the dbs, than all the collections
+            dbs_s = subprocess.check_output(["mongo", "--port", args.restoreAndDeployTempPort
+                    , "--eval" ,"db.getSiblingDB('admin').getMongo().getDBNames()", "--quiet"])
+            dbs = ast.literal_eval(dbs_s)
+            for db in dbs:
+                colls_s = subprocess.check_output(["mongo", "--port", args.restoreAndDeployTempPort
+                    , "--eval", "db.getSiblingDB('"+db+"').getCollectionNames()", "--quiet"])
+                colls = ast.literal_eval(colls_s)
+                for coll in colls:
+                        namespaces_to_restore.append(" --db " + db + "--collection " + coll)
+
+
+    mongodump_cmd = "mongodump --host localhost:" + args.restoreAndDeployTempPort
+    mongodump_cmd += " --out -"     # write to SDTOUT
+    vprint("mongodump_cmd="+mongodump_cmd,args);
+
+    mongorestore_cmd = "mongorestore --host " + args.targetHost
+    if args.targetUsername:
+        mongorestore_cmd += " --username " + args.targetUsername
+        mongorestore_cmd += " --password " + args.targetPassword
+        if args.targetAuthenticationDatabase:
+            mongorestore_cmd += " --authenticationDatabase " + args.targetAuthenticationDatabase
+            if args.targetAuthenticationMechanism:
+                mongorestore_cmd += " --authenticationMechanism " + args.targetAuthenticationMechanism
+    if args.restoreAndDeployDropFromTarget:
+        mongorestore_cmd += " --drop"
+    mongorestore_cmd += " --dir -"  # read from STDIN
+
+
+
+    vprint("mongorestore_cmd="+mongorestore_cmd,args)
+    #spin through all the namespaces to restore since when reading & writing
+    # to STDOUT/STDIN with mongodump and mongorestore and can only go 1 collection
+    # at a time.
+    for ns_to_restore in namespaces_to_restore:
+        restore_cmd = mongodump_cmd + ns_to_restore + " | " + mongorestore_cmd + ns_to_restore
+        vprint("restore_cmd="+restore_cmd,args)
+        subprocess.check_call(restore_cmd, shell=True)
+
+
+    #TODO: shutdown temp mongod & blow away dbpath?
+    os.kill(int(temp_mongod_pid), signal.SIGKILL)
 
 # print out nice table of hosts & id's
 def get_hosts(args):
@@ -431,7 +533,6 @@ requiredNamed.add_argument("--username"
 requiredNamed.add_argument("--apikey"
         ,help='OpsMgr api key for the user'
         ,required=True)
-
 parser.add_argument("--getClusters",dest='action', action='store_const'
         ,const=get_clusters
         ,help='get cluster information')
@@ -462,22 +563,46 @@ parser.add_argument("--createRestore",dest='action', action='store_const'
 parser.add_argument("--createRestoreLatest",dest='action', action='store_const'
         ,const=create_latest_restore
         ,help='create a restore job for the lastest snapshotId')
+parser.add_argument("--createRestoreAndDeploy",dest='action', action='store_const'
+        ,const=create_restore_and_deploy
+        ,help='create a restore job from a given --clusterId for a given --snapshotId'+
+        ', download and unpack it, then deploy data in --restoreNamespace to --targetHost\n'+
+        'NOTE: you must have the same or higher version of Mongo binaries installed on the machine '+
+        'running this script as running on the --targetHost!')
 parser.add_argument("--targetHost"
-        ,help='target OpsMgr host with protocol and port')
+        ,help='target OpsMgr/MongoDB host with protocol and port')
 parser.add_argument("--targetGroup"
         ,help='target OpsMgr group id')
 parser.add_argument("--targetUsername"
-        ,help='target OpsMgr host user name')
+        ,help='target OpsMgr/MongoDB host user name')
 parser.add_argument("--targetApikey"
         ,help='target OpsMgr api key for target user')
+parser.add_argument("--targetPassword"
+        ,help='target MongoDB instance password for target user')
+parser.add_argument("--targetAuthenticationDatabase"
+        ,help='target MongoDB instance authentication database target user')
+parser.add_argument("--targetAuthenticationMechanism"
+        ,help='target MongoDB instance authentication mechanism target user')
 parser.add_argument("--alertConfigsSource"
         ,help='A file containing JSON alert configs or "-" for STDIN')
 parser.add_argument("--clusterId"
         ,help='id of replica set or sharded cluster for snapshots')
 parser.add_argument("--snapshotId"
         ,help='id of a snapshot to restore')
+parser.add_argument("--restoreNamespace"
+        ,help='Namespace(s) to restore from snapshot. Use "*" for all databases. '+
+        'Use "foo.*" for all collections in the foo database. Use "foo.bar" for just the bar '+
+        'collection in the foo database.')
 parser.add_argument("--outDirectory"
         ,help='optional directory to save downloaded snapshot')
+parser.add_argument("--restoreAndDeployTempPort"
+        ,help='optional port number to run temporary mongod to restore snapshot from, '+
+        'default is 27229',default='27229')
+parser.add_argument("--restoreAndDeployTempMongodArgs"
+        ,help='optional arguments for temp mongod to restore snapshot from.')
+parser.add_argument("--restoreAndDeployDropFromTarget", action='store_true', default=False
+        ,help='optional arguments for mongorestore process used to restore snapshot to --targetHost.' +
+        ' For example "--drop" to force a drop of the collection(s) to be restored.')
 parser.add_argument("--continueOnError", action='store_true', default=False
         ,help='for operations that issue multiple API calls, set this flag to fail to report errors but keep going')
 parser.add_argument("--verbose", action='store_true', default=False
