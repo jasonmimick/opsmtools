@@ -81,7 +81,14 @@ def create_restore(args):
         AsciiTable = False
         pass
     headers = { "Content-Type" : "application/json" }
-    snapshotInfo = { "snapshotId" : args.snapshotId }
+    if args.snapshotId:
+        snapshotInfo = { "snapshotId" : args.snapshotId }
+    elif args.snapshotTimestamp:
+        snapshotInfo = { "timestamp" : { "date" : args.snapshotTimestamp, "increment" : 0 } }
+        if args.snapshotIncrement:
+            snapshotInfo['timestamp']['increment'] = args.snapshotIncrement
+    else:
+        raise Exception("ERROR no snapshotId or no snapshotTimestamp found, required for create_restore")
     vprint("============= POST data ==============",args)
     vprint( json.dumps(snapshotInfo),args )
     vprint("============= end POST data ==============",args)
@@ -91,6 +98,7 @@ def create_restore(args):
         auth=HTTPDigestAuth(args.username,args.apikey),
         data=json.dumps(snapshotInfo),
         headers=headers)
+    vprint( response.json(), args)
     response.raise_for_status()
     vprint("============= response ==============",args)
     vprint( vars(response),args )
@@ -217,7 +225,7 @@ def create_restore_and_deploy(args):
 
 
     mongodump_cmd = "mongodump --host localhost:" + args.restoreAndDeployTempPort
-    mongodump_cmd += " --out -"     # write to SDTOUT
+    mongodump_cmd += " --out - "     # write to SDTOUT
     vprint("mongodump_cmd="+mongodump_cmd,args);
 
     mongorestore_cmd = "mongorestore --host " + args.targetHost
@@ -230,7 +238,7 @@ def create_restore_and_deploy(args):
                 mongorestore_cmd += " --authenticationMechanism " + args.targetAuthenticationMechanism
     if args.restoreAndDeployDropFromTarget:
         mongorestore_cmd += " --drop"
-    mongorestore_cmd += " --dir -"  # read from STDIN
+    mongorestore_cmd += " --dir - "  # read from STDIN
 
 
 
@@ -566,6 +574,7 @@ parser.add_argument("--createRestoreLatest",dest='action', action='store_const'
 parser.add_argument("--createRestoreAndDeploy",dest='action', action='store_const'
         ,const=create_restore_and_deploy
         ,help='create a restore job from a given --clusterId for a given --snapshotId'+
+        ' (or --snapshotTimestamp, --snapshotIncrement is optional)'
         ', download and unpack it, then deploy data in --restoreNamespace to --targetHost\n'+
         'NOTE: you must have the same or higher version of Mongo binaries installed on the machine '+
         'running this script as running on the --targetHost!')
@@ -589,6 +598,10 @@ parser.add_argument("--clusterId"
         ,help='id of replica set or sharded cluster for snapshots')
 parser.add_argument("--snapshotId"
         ,help='id of a snapshot to restore')
+parser.add_argument("--snapshotTimestamp"
+        ,help='point-in-time restore timestamp, format 2014-07-09T09:20:00Z')
+parser.add_argument("--snapshotIncrement"
+        ,help='point-in-time restore increment, a positive integer')
 parser.add_argument("--restoreNamespace"
         ,help='Namespace(s) to restore from snapshot. Use "*" for all databases. '+
         'Use "foo.*" for all collections in the foo database. Use "foo.bar" for just the bar '+
