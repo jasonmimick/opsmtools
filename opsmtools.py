@@ -399,7 +399,7 @@ def get_alerts(args):
         , str(alert.get('status'))
         , str(alert.get('created'))
         , str(alert.get('replicaSetName',''))]
-    table_data.append( row );
+        table_data.append( row );
 
     table_data.append(['','','Number alerts',str(alerts_json['totalCount'])])
 
@@ -428,6 +428,10 @@ def delete_alert_configs(args):
     print( vars(args) )
     deleted_alerts = 0
     failed_deletions = 0
+    host = args.host
+    group_id = args.group
+    user_name = args.username
+    api_key = args.apikey
     alert_configs_raw = requests.get(host+"/api/public/v1.0/groups/"+group_id+"/alertConfigs",
                       auth=HTTPDigestAuth(user_name,api_key))
 
