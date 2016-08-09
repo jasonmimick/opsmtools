@@ -8,6 +8,7 @@
 # pip install requests,terminaltables
 #
 import sys, os
+import datetime
 import argparse
 import requests
 import json
@@ -377,6 +378,8 @@ def get_alerts(args):
     except ImportError:
         AsciiTable = False
         pass
+    if args.format=='json':
+        AsciiTable = False
     host = args.host
     group_id = args.group
     user_name = args.username
@@ -410,8 +413,41 @@ def get_alerts(args):
         table.inner_footing_row_border = True
         print table.table
     else:
-        import pprint
-        pprint.pprint(table_data)
+        if args.format=='json':
+            print(json.dumps(alerts_json))
+        else:
+            import pprint
+            pprint.pprint(table_data)
+    return alerts_json
+
+def process_alerts(args):
+    alerts = get_alerts(args)
+    for alert in alerts['results']:
+        print(alert['id'])
+        args.alertId = alert['id']
+        #
+        # custom processing goes here!
+        #
+        acknowledge_alert(args)
+
+def acknowledge_alert(args):
+    headers = { "Content-Type" : "application/json" }
+    if args.ackUntil=="XXX":
+        now = datetime.datetime.now()
+        diff = datetime.timedelta(days=100*365)
+        forever = now + diff
+        args.ackUntil = forever.strftime("%Y-%m-%dT%H:%M:%SZ")
+    ack_data = { "acknowledgedUntil" : args.ackUntil,
+                 "acknowledgementComment" : args.ackComment }
+    response = requests.patch(args.host
+            +"/api/public/v1.0/groups/"
+            +args.group+"/alerts/"+args.alertId
+            ,auth=HTTPDigestAuth(args.username,args.apikey)
+            ,headers=headers,
+            data=json.dumps(ack_data))
+    response.raise_for_status()
+    result = json.dumps(response.json())
+    print(result)
 
 def get_alert_configs(args):
     response = requests.get(args.host
@@ -554,6 +590,12 @@ parser.add_argument("--getHosts",dest='action', action='store_const'
 parser.add_argument("--getAlerts",dest='action', action='store_const'
         ,const=get_alerts
         ,help='get alerts')
+parser.add_argument("--ackAlert",dest='action', action='store_const'
+        ,const=acknowledge_alert
+        ,help='acknowledge an alert')
+parser.add_argument("--processAlerts",dest='action', action='store_const'
+        ,const=process_alerts
+        ,help='custom processing and acknowlegment of alerts')
 parser.add_argument("--getAlertConfigs",dest='action', action='store_const'
         ,const=get_alert_configs
         ,help='get alert configurations')
@@ -624,6 +666,14 @@ parser.add_argument("--continueOnError", action='store_true', default=False
         ,help='for operations that issue multiple API calls, set this flag to fail to report errors but keep going')
 parser.add_argument("--verbose", action='store_true', default=False
         ,help='enable versbose output for troubleshooting')
+parser.add_argument("--format", default='json'
+        ,help='specify output format')
+parser.add_argument("--alertId"
+        ,help="id of alert to acknowledge")
+parser.add_argument("--ackUntil", default="XXX"
+        ,help="datetime to ack alert default is 'forever' (100 years in the future)")
+parser.add_argument("--ackComment"
+        ,help="comment to add for alert ack")
 
 parsed_args = parser.parse_args()
 
