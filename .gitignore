@@ -1,0 +1,7 @@
+# editor artefacts
+*.swp
+*.so
+
+# compilation artefacts
+*.pyc
+
