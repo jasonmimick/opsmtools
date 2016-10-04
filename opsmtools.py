@@ -333,6 +333,40 @@ def get_clusters(args):
         import pprint
         pprint.pprint(table_data)
 
+# retrieve information about the automation config
+def get_automation_config(args):
+    response= requests.get(args.host+"/api/public/v1.0/groups/"+args.group+"/automationConfig/"
+             ,auth=HTTPDigestAuth(args.username,args.apikey))
+    response.raise_for_status()
+    vprint("============= response ==============",args)
+    vprint( vars(response),args )
+    vprint("============= end response ==============",args)
+
+    hosts_json = response.json()
+
+    print json.dumps(hosts_json, indent=4, sort_keys=True)
+
+# modify settings within the automation config
+def set_automation_config(args):
+    with open(args.newAutomationConfigPath) as automation_conf_json:
+        new_auto_conf = json.load(automation_conf_json)
+
+    headers = {'content-type': 'application/json'}
+    response= requests.put(args.host+"/api/public/v1.0/groups/"+args.group+"/automationConfig/"
+             ,auth=HTTPDigestAuth(args.username,args.apikey)
+             ,data=json.dumps(new_auto_conf)
+             ,headers=headers)
+
+    response.raise_for_status()
+    vprint("============= response ==============",args)
+    vprint( vars(response),args )
+    vprint("============= end response ==============",args)
+
+    response_json = response.json()
+
+    import pprint
+    pprint.pprint(response_json)
+
 # print out nice table of hosts & id's
 def get_hosts(args):
     try:
@@ -624,6 +658,14 @@ parser.add_argument("--createRestoreAndDeploy",dest='action', action='store_cons
         ', download and unpack it, then deploy data in --restoreNamespace to --targetHost\n'+
         'NOTE: you must have the same or higher version of Mongo binaries installed on the machine '+
         'running this script as running on the --targetHost!')
+parser.add_argument("--getAutomationConfig", dest='action', action='store_const'
+        ,const=get_automation_config
+        ,help='get the current automation state of all hosts in the group')
+parser.add_argument("--setAutomationConfig", dest='action', action='store_const'
+        ,const=set_automation_config
+        ,help='update automation configuration through API endpoint')
+parser.add_argument("--newAutomationConfigPath"
+        ,help='path to file with new configuration for automation')
 parser.add_argument("--targetHost"
         ,help='target OpsMgr/MongoDB host with protocol and port')
 parser.add_argument("--targetGroup"
