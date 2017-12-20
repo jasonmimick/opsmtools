@@ -165,7 +165,7 @@ to your command for useful debugging information.
 $./opsmtools.py --host http://my.opsmgr.server:8080 \
                --group 57598b14e4b01b9f37aadaf8 \
                --username jason.mimick@mongodb.com --apikey xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx \
-               --getAlerts
+               --getAlerts --format table
 +Alerts from http://my.opsmgr.server:8080--------------------------------+
 | eventTypeName         | status | created              | replicaSetName |
 +-----------------------+--------+----------------------+----------------+
