@@ -709,7 +709,7 @@ parser.add_argument("--continueOnError", action='store_true', default=False
 parser.add_argument("--verbose", action='store_true', default=False
         ,help='enable versbose output for troubleshooting')
 parser.add_argument("--format", default='json'
-        ,help='specify output format')
+        ,help='specify output format. Default: json')
 parser.add_argument("--alertId"
         ,help="id of alert to acknowledge")
 parser.add_argument("--ackUntil", default="XXX"
